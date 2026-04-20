@@ -5,7 +5,7 @@ import { Session } from "@shopify/shopify-api";
 const serviceAccount = {
     "type": "service_account",
     "project_id": "cod-rules",
-    "private_key_id": "ef1ab4251da3f7e04dd54fb78a284fe11bf6beba",
+    "private_key_id": process.env.GOOGLE_PRIVATE_KEY_ID,
     "private_key": process.env.GOOGLE_PRIVATE_KEY,
     "client_email": "firebase-adminsdk-fbsvc@cod-rules.iam.gserviceaccount.com",
     "client_id": "112140114786647885711",

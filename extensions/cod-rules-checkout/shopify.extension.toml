@@ -1,0 +1,18 @@
+api_version = "2026-01"
+
+[[extensions]]
+name = "t:name"
+handle = "cod-rules-checkout"
+type = "function"
+uid = "ce3c52ae-e297-cfdd-49bc-d9b12589e1dbbf95f887"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.validations.generate.run"
+  input_query = "src/cart_validations_generate_run.graphql"
+  export = "cart_validations_generate_run"
+
+  [extensions.build]
+  command = "cargo build --target=wasm32-unknown-unknown --release"
+  path = "target/wasm32-unknown-unknown/release/cod-rules-checkout.wasm"
+  watch = ["src/**/*.rs"]

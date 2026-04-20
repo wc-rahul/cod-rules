@@ -1,0 +1,7 @@
+query Input {
+  paymentCustomization {
+    metafield(namespace: "$app:cod-rules-payment", key: "function-configuration") {
+      jsonValue
+    }
+  }
+}

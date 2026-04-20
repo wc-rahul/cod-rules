@@ -1,0 +1,22 @@
+api_version = "2026-01"
+
+[[extensions]]
+name = "t:name"
+handle = "codrules"
+type = "function"
+uid = "09e067ee-1bbc-a808-b0a8-0cb33ade203cccbfa3bf"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.delivery-options.transform.run"
+  input_query = "src/cart_delivery_options_transform_run.graphql"
+  export = "cart_delivery_options_transform_run"
+
+  [extensions.build]
+  command = "cargo build --target=wasm32-unknown-unknown --release"
+  path = "target/wasm32-unknown-unknown/release/codrules.wasm"
+  watch = [ "src/**/*.rs" ]
+
+  [extensions.ui.paths]
+  create = "/"
+  details = "/"

@@ -2,7 +2,6 @@
 import admin from "firebase-admin";
 import { Session } from "@shopify/shopify-api";
 
-console.log('=====================>>>>>>>>>', process.env.SHOPIFY_DB_PRIVATE_KEY);
 const serviceAccount = {
     "type": "service_account",
     "project_id": "cod-rules",

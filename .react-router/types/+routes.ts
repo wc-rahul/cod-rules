@@ -34,12 +34,15 @@ type Pages = {
   "/app/additional": {
     params: {};
   };
+  "/app/rules": {
+    params: {};
+  };
 };
 
 type RouteFiles = {
   "root.jsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/auth/login" | "/auth/*" | "/app" | "/app/additional";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/auth/login" | "/auth/*" | "/app" | "/app/additional" | "/app/rules";
   };
   "routes/webhooks.app.scopes_update.jsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -63,7 +66,7 @@ type RouteFiles = {
   };
   "routes/app.jsx": {
     id: "routes/app";
-    page: "/app" | "/app/additional";
+    page: "/app" | "/app/additional" | "/app/rules";
   };
   "routes/app.additional.jsx": {
     id: "routes/app.additional";
@@ -72,6 +75,10 @@ type RouteFiles = {
   "routes/app._index.jsx": {
     id: "routes/app._index";
     page: "/app";
+  };
+  "routes/app.rules.jsx": {
+    id: "routes/app.rules";
+    page: "/app/rules";
   };
 };
 
@@ -85,4 +92,5 @@ type RouteModules = {
   "routes/app": typeof import("./app/routes/app.jsx");
   "routes/app.additional": typeof import("./app/routes/app.additional.jsx");
   "routes/app._index": typeof import("./app/routes/app._index.jsx");
+  "routes/app.rules": typeof import("./app/routes/app.rules.jsx");
 };

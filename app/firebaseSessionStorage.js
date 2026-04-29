@@ -112,20 +112,22 @@ export class FirebaseSessionStorage {
      * @returns {string}      - the document ID (= shop)
      */
     async saveRules(shop, rules) {
-        // Pull selectionIds out of productRule before saving — they are only
-        // needed by the frontend picker, not by checkout rule evaluation.
         const { productRule, ...rest } = rules;
         const { selectionIds, ...productRuleCore } = productRule ?? {};
 
+        // Generate unique rule ID
+        const ruleId = db.collection("rules").doc().id;
+
         const payload = {
-            shop,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             rules: {
                 ...rest,
                 productRule: productRuleCore,
                 // Keep selectionIds in a separate key so the loader can
                 // restore the picker state without polluting the hot-path data.
                 _productSelectionIds: selectionIds ?? [],
+                ruleId,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                shop,
             },
         };
 

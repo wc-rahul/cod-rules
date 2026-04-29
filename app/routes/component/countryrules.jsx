@@ -52,7 +52,7 @@ export default function CountryRules({
                 <s-box padding="base" border="base" borderRadius="base">
                   <s-stack gap="small">
                     <s-stack direction="inline" justifyContent="space-between" alignItems="center">
-                      <s-text fontWeight="bold">1. Countries</s-text>
+                      <s-heading fontWeight="bold">1. Countries</s-heading>
                       <s-badge tone={countryMode === "include" ? "success" : "critical"}>
                         {countryMode === "include" ? "Allow list" : "Block list"}
                       </s-badge>
@@ -115,7 +115,7 @@ export default function CountryRules({
                   <s-box padding="base" border="base" borderRadius="base">
                     <s-stack gap="small">
                       <s-stack direction="inline" justifyContent="space-between" alignItems="center">
-                        <s-text fontWeight="bold">2. Provinces</s-text>
+                        <s-heading fontWeight="bold">2. Provinces</s-heading>
                         <s-badge tone={provinceMode === "include" ? "success" : "critical"}>
                           {provinceMode === "include" ? "Allow exceptions" : "Block exceptions"}
                         </s-badge>
@@ -178,25 +178,26 @@ export default function CountryRules({
                   <s-box padding="base" border="base" borderRadius="base">
                     <s-stack gap="small">
                       <s-stack direction="inline" justifyContent="space-between" alignItems="center">
-                        <s-text fontWeight="bold">3. Pincodes</s-text>
+                        <s-heading fontWeight="bold">3. Pincodes</s-heading>
                         <s-badge tone={pincodeRulesEnabled ? "info" : "subdued"}>
                           {pincodeRulesEnabled ? "On" : "Off"}
                         </s-badge>
                       </s-stack>
-
-                      <s-text tone="subdued">
-                        Optional pincode overrides for the provinces you selected.
-                      </s-text>
-
+                      <s-stack direction="inline" gap="small" alignItems="center">
                       <s-checkbox
-                        checked={pincodeRulesEnabled}
-                        onChange={(e) => {
-                          setPincodeRulesEnabled(e.target.checked);
-                          if (!e.target.checked) setSelectedPincodes({});
-                        }}
-                      >
-                        Enable pincode rules
-                      </s-checkbox>
+                          checked={pincodeRulesEnabled}
+                          onChange={(e) => {  
+                            setPincodeRulesEnabled(e.target.checked);
+                            if (!e.target.checked) setSelectedPincodes({});
+                          }}
+                        >
+                          Enable pincode rules
+                        </s-checkbox>
+                        <s-text tone="subdued">
+                          pincode overrides for the provinces you selected. (Optional)
+                        </s-text>
+                      </s-stack>
+
 
                       {pincodeRulesEnabled && (
                         <s-stack gap="base">
@@ -269,22 +270,11 @@ export default function CountryRules({
                     </s-stack>
                   </s-box>
                 )}
-
-                {selectedCountries.length > 0 && (
-                  <s-stack direction="inline" gap="small">
-                    <s-button variant="primary" onClick={buildFinalResult}>
-                      Save rules
-                    </s-button>
-                    <s-button variant="secondary" onClick={clearAll}>
-                      Clear all
-                    </s-button>
-                  </s-stack>
-                )}
               </s-stack>
             </s-column>
 
             {/* RIGHT: PREVIEW */}
-            <s-column>
+            {/* <s-column>
               <s-box padding="base" border="base" borderRadius="base" background="subdued">
                 <s-stack gap="base">
                   <s-stack gap="small">
@@ -379,7 +369,7 @@ export default function CountryRules({
                   )}
                 </s-stack>
               </s-box>
-            </s-column>
+            </s-column> */}
           </s-columns>
         </s-stack>
       </s-section>

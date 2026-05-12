@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { useLoaderData, useFetcher } from "react-router";
+import { useLoaderData, useFetcher, useSearchParams } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CountryRules from "./component/countryrules";
 import OtherRules from "./component/otherrules";
@@ -29,6 +29,24 @@ export const action = async ({ request }) => {
 export const loader = async ({ request }) => {
     const { admin, session } = await authenticate.admin(request);
     const shop = session.shop;
+    
+    const url = new URL(request.url);
+    const ruleId = url.searchParams.get("ruleId");
+    const isNew = url.searchParams.get("new");
+
+    let existingRule = null;
+    if (ruleId && !isNew) {
+        try {
+            const response = await fetch("/api/rules/load", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ shop, ruleId }),
+            });
+            existingRule = await response.json();
+        } catch (error) {
+            console.error("Error loading rule:", error);
+        }
+    }
 
     const response = await admin.graphql(`
     #graphql
@@ -92,12 +110,24 @@ export const loader = async ({ request }) => {
         countries: Object.values(countryMap),
         currency_data,
         savedRules: savedDoc?.rules ?? null,
+        shop,
+        ruleId,
+        isNew,
+        existingRule,
     };
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function Rules() {
-    const { countries, currency_data, savedRules } = useLoaderData();
+    const {
+        countries,
+        currency_data,
+        savedRules,
+        shop,
+        ruleId,
+        isNew,
+        existingRule,
+    } = useLoaderData();
     const fetcher = useFetcher();
 
     // ─── SaveBar ──────────────────────────────────────────────────────────────

@@ -10,18 +10,96 @@ const storage = new FirebaseSessionStorage();
 // ─── Action ────────────────────────────────────────────────────────────────────
 // Called by useFetcher when the user hits Save.
 export const action = async ({ request }) => {
-    const { session } = await authenticate.admin(request);
+    // Ensure admin client + session
+    const { admin, session } = await authenticate.admin(request);
     const shop = session.shop; // e.g. "example.myshopify.com"
 
-    const body = await request.json();
-    const { rules } = body;
+    // Support JSON or form submissions and optional ruleId
+    const contentType = (request.headers.get("content-type") || "").toLowerCase();
+    let rules, incomingRuleId;
+    try {
+        if (contentType.includes("application/json")) {
+            const body = await request.json();
+            rules = body.rules;
+            incomingRuleId = body.ruleId ?? null;
+        } else {
+            const fd = await request.formData();
+            const rulesStr = fd.get("rules");
+            incomingRuleId = fd.get("ruleId") ?? null;
+            rules = rulesStr ? JSON.parse(rulesStr) : null;
+        }
+    } catch (err) {
+        console.error("Failed to parse incoming rules:", err);
+        return { ok: false, error: "Invalid payload" };
+    }
+
+    if (!rules) {
+        return { ok: false, error: "No rules provided" };
+    }
 
     try {
-        const docId = await storage.saveRules(shop, rules);
-        return { ok: true, docId };
+        // Save to Firestore (create new rule doc or update existing)
+        const savedRuleId = await storage.saveRules(shop, rules, incomingRuleId ?? null);
+
+        // Build metafield payload (include the firestore id inside value)
+        const metafieldValue = JSON.stringify({ ...rules, firestoreId: savedRuleId });
+
+        // Retrieve shop GID (ownerId) to attach metafield to the shop
+        const shopRes = await admin.graphql(`{ shop { id } }`);
+        const shopJson = await shopRes.json();
+        const ownerId = shopJson?.data?.shop?.id;
+        if (!ownerId) {
+            console.warn("Unable to resolve shop GID for metafield owner; skipping metafield sync");
+            return { ok: true, docId: savedRuleId, metafield: null };
+        }
+
+        // Upsert metafield on the shop using metafieldsSet (single-item array)
+        const METAFIELDS_SET_MUTATION = `
+          mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+              metafields {
+                id
+                key
+                namespace
+                type
+                value
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        const variables = {
+            metafields: [
+                {
+                    ownerId,
+                    namespace: "payment_rules",
+                    key: savedRuleId,
+                    type: "json",
+                    value: metafieldValue,
+                },
+            ],
+        };
+
+        const mfResp = await admin.graphql(METAFIELDS_SET_MUTATION, { variables });
+        const mfJson = await mfResp.json();
+
+        const userErrors = mfJson?.data?.metafieldsSet?.userErrors;
+        if (userErrors && userErrors.length) {
+            console.error("Metafield upsert errors:", userErrors);
+            // still return ok for firestore save, but surface metafield errors
+            return { ok: true, docId: savedRuleId, metafieldError: userErrors };
+        }
+
+        const createdMf = mfJson?.data?.metafieldsSet?.metafields?.[0] ?? null;
+
+        return { ok: true, docId: savedRuleId, metafield: createdMf };
     } catch (err) {
-        console.error("Failed to save rules:", err);
-        return { ok: false, error: err.message };
+        console.error("Failed to save rules or create metafield:", err);
+        return { ok: false, error: err.message ?? String(err) };
     }
 };
 
@@ -29,22 +107,19 @@ export const action = async ({ request }) => {
 export const loader = async ({ request }) => {
     const { admin, session } = await authenticate.admin(request);
     const shop = session.shop;
-    
+
     const url = new URL(request.url);
     const ruleId = url.searchParams.get("ruleId");
     const isNew = url.searchParams.get("new");
 
+    // When editing existing rule, load that specific rule doc from subcollection
     let existingRule = null;
     if (ruleId && !isNew) {
         try {
-            const response = await fetch("/api/rules/load", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ shop, ruleId }),
-            });
-            existingRule = await response.json();
-        } catch (error) {
-            console.error("Error loading rule:", error);
+            existingRule = await storage.loadRules(shop, ruleId); // single rule entry
+        } catch (err) {
+            console.error("Error loading specific rule:", err);
+            existingRule = null;
         }
     }
 
@@ -103,13 +178,10 @@ export const loader = async ({ request }) => {
         });
     });
 
-    // Load previously saved rules for this shop — null if never saved
-    const savedDoc = await storage.loadRules(shop);
-
     return {
         countries: Object.values(countryMap),
         currency_data,
-        savedRules: savedDoc?.rules ?? null,
+        savedRules: existingRule ?? null, // populate form with single rule when editing
         shop,
         ruleId,
         isNew,
@@ -133,6 +205,9 @@ export default function Rules() {
     // ─── SaveBar ──────────────────────────────────────────────────────────────
     const [isDirty, setIsDirty] = useState(false);
     const saveBarRef = useRef(null);
+
+    // Required display name for the rule shown on index cards
+    const [ruleName, setRuleName] = useState(() => (savedRules?.rulename ?? savedRules?.name ?? ""));
 
     // Keep stable refs to handlers so the event listeners below never go stale
     // without needing to detach/re-attach on every render.
@@ -465,14 +540,30 @@ export default function Rules() {
 
     // ─── Save via Remix action ─────────────────────────────────────────────────
     const handleSave = useCallback(() => {
-        const rules = buildFinalResult();
-        fetcher.submit(
-            { rules },
-            { method: "POST", encType: "application/json" }
-        );
-    }, [buildFinalResult, fetcher]);
+        // Validate required rule name
+        if (!ruleName || !ruleName.toString().trim()) {
+            // minimal UX: alert user (you can replace with nicer UI)
+            window.alert("Please provide a Rule name before saving.");
+            return;
+        }
 
-    // Keep refs current so the SaveBar event listeners always call latest version
+        // Build payload and include required rulename
+        const rulesPayload = { ...buildFinalResult(), rulename: ruleName };
+
+        try {
+            console.log("Submitting rules:", JSON.stringify(rulesPayload, null, 2));
+        } catch (err) {
+            console.log("Submitting rules (object):", rulesPayload);
+        }
+
+        // Use FormData so fetcher.state updates correctly
+        const fd = new FormData();
+        fd.set("rules", JSON.stringify(rulesPayload));
+        if (ruleId) fd.set("ruleId", ruleId);
+        fetcher.submit(fd, { method: "post" });
+    }, [buildFinalResult, fetcher, ruleId, ruleName]);
+
+    // Keep refs current for ui-save-bar
     handleSaveRef.current    = handleSave;
     handleDiscardRef.current = () => setIsDirty(false);
 
@@ -488,6 +579,20 @@ export default function Rules() {
 
     return (
         <>
+            {/* Rule name input (required) — Polaris webcomponent style */}
+            <s-page>
+                <s-section>
+                    <div style={{ padding: "12px 16px" }}>
+                        <s-text-field
+                            label="Rule name"
+                            value={ruleName}
+                            required
+                            placeholder="Name to display on dashboard"
+                            onInput={(e) => { setRuleName(e.target.value); setIsDirty(true); }}
+                        />
+                    </div>
+                </s-section>
+            </s-page>
 
             {/* Shopify web component — listeners attached via useEffect above */}
             <ui-save-bar

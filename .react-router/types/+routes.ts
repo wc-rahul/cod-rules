@@ -14,10 +14,25 @@ type Pages = {
   "/": {
     params: {};
   };
+  "/api/payment-customization-activate": {
+    params: {};
+  };
+  "/api/debug/payment-customizations": {
+    params: {};
+  };
+  "/api/payment-customization-create": {
+    params: {};
+  };
+  "/api/payment-customization-update": {
+    params: {};
+  };
   "/webhooks/app/scopes_update": {
     params: {};
   };
   "/webhooks/app/uninstalled": {
+    params: {};
+  };
+  "/api/rules/set-active": {
     params: {};
   };
   "/auth/login": {
@@ -42,7 +57,23 @@ type Pages = {
 type RouteFiles = {
   "root.jsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/auth/login" | "/auth/*" | "/app" | "/app/additional" | "/app/rules";
+    page: "/" | "/api/payment-customization-activate" | "/api/debug/payment-customizations" | "/api/payment-customization-create" | "/api/payment-customization-update" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/api/rules/set-active" | "/auth/login" | "/auth/*" | "/app" | "/app/additional" | "/app/rules";
+  };
+  "routes/api.payment-customization-activate.jsx": {
+    id: "routes/api.payment-customization-activate";
+    page: "/api/payment-customization-activate";
+  };
+  "routes/api.debug.payment-customizations.jsx": {
+    id: "routes/api.debug.payment-customizations";
+    page: "/api/debug/payment-customizations";
+  };
+  "routes/api.payment-customization-create.jsx": {
+    id: "routes/api.payment-customization-create";
+    page: "/api/payment-customization-create";
+  };
+  "routes/api.payment-customization-update.jsx": {
+    id: "routes/api.payment-customization-update";
+    page: "/api/payment-customization-update";
   };
   "routes/webhooks.app.scopes_update.jsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -51,6 +82,10 @@ type RouteFiles = {
   "routes/webhooks.app.uninstalled.jsx": {
     id: "routes/webhooks.app.uninstalled";
     page: "/webhooks/app/uninstalled";
+  };
+  "routes/api.rules.set-active.jsx": {
+    id: "routes/api.rules.set-active";
+    page: "/api/rules/set-active";
   };
   "routes/auth.login/route.jsx": {
     id: "routes/auth.login";
@@ -84,8 +119,13 @@ type RouteFiles = {
 
 type RouteModules = {
   "root": typeof import("./app/root.jsx");
+  "routes/api.payment-customization-activate": typeof import("./app/routes/api.payment-customization-activate.jsx");
+  "routes/api.debug.payment-customizations": typeof import("./app/routes/api.debug.payment-customizations.jsx");
+  "routes/api.payment-customization-create": typeof import("./app/routes/api.payment-customization-create.jsx");
+  "routes/api.payment-customization-update": typeof import("./app/routes/api.payment-customization-update.jsx");
   "routes/webhooks.app.scopes_update": typeof import("./app/routes/webhooks.app.scopes_update.jsx");
   "routes/webhooks.app.uninstalled": typeof import("./app/routes/webhooks.app.uninstalled.jsx");
+  "routes/api.rules.set-active": typeof import("./app/routes/api.rules.set-active.jsx");
   "routes/auth.login": typeof import("./app/routes/auth.login/route.jsx");
   "routes/auth.$": typeof import("./app/routes/auth.$.jsx");
   "routes/_index": typeof import("./app/routes/_index/route.jsx");

@@ -111,47 +111,98 @@ export class FirebaseSessionStorage {
      * @param {object} rules  - the full object returned by buildFinalResult()
      * @returns {string}      - the document ID (= shop)
      */
-    async saveRules(shop, rules) {
+    async saveRules(shop, rules, ruleId = null) {
         const { productRule, ...rest } = rules;
         const { selectionIds, ...productRuleCore } = productRule ?? {};
 
-        // Generate unique rule ID
-        const ruleId = db.collection("rules").doc().id;
+        const id = ruleId ?? db.collection("rules").doc().id;
 
-        const payload = {
-            rules: {
-                ...rest,
-                productRule: productRuleCore,
-                // Keep selectionIds in a separate key so the loader can
-                // restore the picker state without polluting the hot-path data.
-                _productSelectionIds: selectionIds ?? [],
-                ruleId,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                shop,
-            },
+        // determine display name (prefer explicit 'rulename' or 'name' in the payload)
+        const displayName = rest.rulename ?? rest.name ?? `Rule ${id}`;
+
+        const ruleEntry = {
+            ruleId: id,
+            shop,
+            rulename: displayName, // required display name for index cards
+            ...rest,
+            productRule: productRuleCore,
+            _productSelectionIds: selectionIds ?? [],
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        await db.collection("rules").doc(shop).set(payload);
-        return shop; // document ID = shop domain
+        const shopDocRef = db.collection("rules").doc(shop);
+        // Ensure shop doc exists
+        await shopDocRef.set({ shop }, { merge: true });
+
+        // Write rule as its own document under subcollection rulesList
+        await shopDocRef.collection("rulesList").doc(id).set(ruleEntry, { merge: true });
+
+        return id;
     }
 
     /**
-     * Load the COD rules for a shop.
-     *
-     * @param {string} shop
-     * @returns {{ shop, updatedAt, rules } | null}
+     * Load a single rule document from rules/{shop}/rulesList/{ruleId},
+     * or when ruleId omitted return the shop doc (not the subcollection).
      */
-    async loadRules(shop) {
-        const doc = await db.collection("rules").doc(shop).get();
-        if (!doc.exists) return null;
-
-        const data = doc.data();
-
-        // Convert Firestore Timestamp → JS Date for convenience
-        if (data.updatedAt?.toDate) {
-            data.updatedAt = data.updatedAt.toDate();
+    async loadRules(shop, ruleId = null) {
+        if (!shop) {
+            throw new Error("shop is a required parameter");
         }
 
-        return data;   // { shop, updatedAt, rules: { ... } }
+        const shopDocRef = db.collection("rules").doc(shop);
+
+        if (ruleId) {
+            const doc = await shopDocRef.collection("rulesList").doc(ruleId).get();
+            if (!doc.exists) return null;
+            const data = doc.data();
+            if (data.updatedAt?.toDate) data.updatedAt = data.updatedAt.toDate();
+            return data;
+        }
+
+        // Return top-level shop doc if needed
+        const doc = await shopDocRef.get();
+        if (!doc.exists) return null;
+        const data = doc.data();
+        if (data.updatedAt?.toDate) data.updatedAt = data.updatedAt.toDate();
+        return data;
+    }
+
+    /**
+     * Get all rule documents for a shop as an array.
+     * Path: rules/{shop}/rulesList/{ruleId}
+     */
+    async getAllRulesByShop(shop) {
+        if (!shop) throw new Error("shop is a required parameter");
+        const snapshot = await db.collection("rules").doc(shop).collection("rulesList").get();
+        return snapshot.docs.map((doc) => {
+            const data = doc.data();
+            if (data.updatedAt?.toDate) data.updatedAt = data.updatedAt.toDate();
+            return data;
+        });
+    }
+
+    // Set the active rule id on the shop doc (rules/{shop}.activeRuleId)
+    async setActiveRule(shop, ruleId) {
+        if (!shop) throw new Error("shop is required");
+        const shopDocRef = db.collection("rules").doc(shop);
+        await shopDocRef.set({ activeRuleId: ruleId }, { merge: true });
+        return ruleId;
+    }
+
+    // Store the shop-level paymentCustomizationId so we can reuse it
+    async setPaymentCustomizationId(shop, paymentCustomizationId) {
+        if (!shop) throw new Error("shop is required");
+        const shopDocRef = db.collection("rules").doc(shop);
+        await shopDocRef.set({ paymentCustomizationId }, { merge: true });
+        return paymentCustomizationId;
+    }
+
+    // Read top-level shop doc for metadata (activeRuleId, paymentCustomizationId, etc.)
+    async getShopDoc(shop) {
+        if (!shop) throw new Error("shop is required");
+        const doc = await db.collection("rules").doc(shop).get();
+        if (!doc.exists) return null;
+        const data = doc.data();
+        return data;
     }
 }
